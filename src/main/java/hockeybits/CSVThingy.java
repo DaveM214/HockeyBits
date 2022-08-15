@@ -14,16 +14,21 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.stream.Collectors;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 
 public class CSVThingy {
 
-	final Map<String, String> teamsAndTheirLeagues = new HashMap<>();
+	final Map<String, String> teamsAndTheirLeagues = new HashMap<>();	
+	final Map<String , List<String[]>> teamsAndTheirRecords = new HashMap<>();
 
 	private final String teamsToLeagues = """
 			West Women's Division 1 South,Ladies 1s,
@@ -40,32 +45,28 @@ public class CSVThingy {
 	}
 	
 	//Things to improve:
-	//Input Robustness
+	//Input Robustness (sanitize "s)
 	//Handling two teams in same leagues properly
-	//
 	
-	public int processCSV(String inputPath, String outputPath)
+	public int processCSV(String inputPath, String outputPath, boolean split)
 	{
 		// Populate the map.
 		String temp = teamsToLeagues.replace("\n", "").replace("\r", "");
 		String[] a = StringUtils.split(temp, ',');
 		for (int i = 0; i < a.length; i = i + 2) {
 			teamsAndTheirLeagues.put(a[i],a[i+1]);
+			teamsAndTheirRecords.put(a[i+1], new ArrayList<>());
 		}
+		
 
 		Reader in;
 		try {		
 			in = new FileReader(new File(inputPath).getAbsolutePath());
-			if(!outputPath.endsWith(".csv"))
-				outputPath  += ".csv";
-			String out = new File(outputPath).getAbsolutePath();
-			System.out.println("OUTPUT PATH: " + out);
 			
 			@SuppressWarnings("resource")
 			CSVParser parser = new CSVParser(in,  CSVFormat.DEFAULT.withFirstRecordAsHeader().withIgnoreHeaderCase().withTrim());
 			Iterable<CSVRecord> records = parser.getRecords();
 
-			List<String[]> outRecs = new ArrayList<>();
 			DateTimeFormatter inputFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ENGLISH);	
 			
 			// Get the bits we need out of the CSV
@@ -93,15 +94,44 @@ public class CSVThingy {
 				String compEvent = record.get("Competition/Event");		
 				String team = teamsAndTheirLeagues.get(compEvent.substring(0, compEvent.length() - 7));
 				String[] entry = new String[]{formattedDate,time,homeTeam,awayTeam,location,team};
-				outRecs.add(entry);
+				teamsAndTheirRecords.get(team).add(entry);
 			}
 
-			BufferedWriter writer = Files.newBufferedWriter(Paths.get(out));
-			try (CSVPrinter csvPrinter = new CSVPrinter(writer,
-					CSVFormat.DEFAULT.withHeader("Date", "Time", "Home Team", "Away Team", "Location", "My Team Indicator"))) {
-				csvPrinter.printRecords(outRecs);
-				csvPrinter.flush();
+			List<Pair<String,List<String[]>>> printingList = new ArrayList<>();
+			
+			//If we are splitting input then put the values into their own lists.
+			if(split)
+			{
+				for (Entry<String, List<String[]>> entry : teamsAndTheirRecords.entrySet()) 
+				{
+					printingList.add(new ImmutablePair<String, List<String[]>>("-"+entry.getKey(),entry.getValue()));
+				}
 			}
+			else
+			{	
+				//Flatten into a single list otherwise
+				printingList.add(new ImmutablePair<>("", teamsAndTheirRecords.entrySet()
+						.stream()
+						.flatMap(e -> e.getValue().stream())
+						.collect(Collectors.toList()))); 
+			}
+			
+			for (Pair<String, List<String[]>> pair : printingList) {
+				
+				String path = outputPath + pair.getLeft();
+				if(!path.endsWith(".csv"))
+					path  += ".csv";
+				
+				String out = new File(path).getAbsolutePath();
+				BufferedWriter writer = Files.newBufferedWriter(Paths.get(out));	
+				try (CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT.withHeader("Date", "Time",
+						"Home Team", "Away Team", "Location", "My Team Indicator"))) {
+					csvPrinter.printRecords(pair.getRight());
+					csvPrinter.flush();
+					writer.close();
+				}			
+			}
+			
 			return 0;
 
 		} catch (IOException e) {
