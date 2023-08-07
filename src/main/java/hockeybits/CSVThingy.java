@@ -1,5 +1,6 @@
 package hockeybits;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
@@ -14,7 +15,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 import org.apache.commons.csv.CSVFormat;
@@ -34,7 +34,7 @@ public class CSVThingy {
 			West Women's Division 1 South,Ladies 1s,
 			West Women's Wessex Division 1,Ladies 2s,
 			AWest Women's Wessex Division 1,Ladies 3s,
-			West Hockey League Men's Division 1 South,Mens 1s,
+			West Men's Division 1 South,Mens 1s,
 			West Men's Parrett Division 1,Mens 2s,
 			West Men's Parrett Division 2,Mens 3s
 			""";
@@ -45,7 +45,6 @@ public class CSVThingy {
 	}
 	
 	//Things to improve:
-	//Input Robustness (sanitize "s)
 	//Handling two teams in same leagues properly
 	
 	public int processCSV(String inputPath, String outputPath, boolean split)
@@ -62,10 +61,18 @@ public class CSVThingy {
 		Reader in;
 		try {		
 			in = new FileReader(new File(inputPath).getAbsolutePath());
-			
 			@SuppressWarnings("resource")
-			CSVParser parser = new CSVParser(in,  CSVFormat.DEFAULT.withFirstRecordAsHeader().withIgnoreHeaderCase().withTrim());
-			Iterable<CSVRecord> records = parser.getRecords();
+			BufferedReader br = new BufferedReader(in);
+			String line = null;
+			List<String> lines = new ArrayList<>();
+			// if no more lines the readLine() returns null
+			while ((line = br.readLine()) != null) {
+				// reading lines until the end of the file
+				lines.add(line.replaceAll("\"", ""));
+			}
+						
+			Iterable<CSVRecord> records = CSVParser.parse(lines.stream().collect(Collectors.joining(System.lineSeparator())),
+					CSVFormat.DEFAULT.withFirstRecordAsHeader().withIgnoreHeaderCase().withTrim());
 
 			DateTimeFormatter inputFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ENGLISH);	
 			
@@ -85,8 +92,9 @@ public class CSVThingy {
 				String location = "";
 				if(venueIndex >= 0)
 				{
-					//Remove all the crap surrounding the venue string.
-					location = homeTeam.substring(venueIndex + 8, homeTeam.length() - 4).trim();
+					//Remove all the crap surrounding the venue string. Offset is because a lot of venues end in (V) but not all of them.
+					int locationOffset = homeTeam.contains("(V))") ? 4 : 1;
+					location = homeTeam.substring(venueIndex + 8, homeTeam.length() - locationOffset).trim();
 					homeTeam = homeTeam.substring(0,venueIndex);
 				}
 				
@@ -102,14 +110,12 @@ public class CSVThingy {
 			//If we are splitting input then put the values into their own lists.
 			if(split)
 			{
-				for (Entry<String, List<String[]>> entry : teamsAndTheirRecords.entrySet()) 
-				{
-					printingList.add(new ImmutablePair<String, List<String[]>>("-"+entry.getKey(),entry.getValue()));
-				}
+				teamsAndTheirRecords.entrySet().forEach(e -> printingList
+						.add(new ImmutablePair<String, List<String[]>>("-" + e.getKey(), e.getValue())));
 			}
 			else
 			{	
-				//Flatten into a single list otherwise
+				//Flatten into a single list 
 				printingList.add(new ImmutablePair<>("", teamsAndTheirRecords.entrySet()
 						.stream()
 						.flatMap(e -> e.getValue().stream())
