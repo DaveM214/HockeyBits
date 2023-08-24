@@ -111,7 +111,7 @@ public class CSVThingy {
 			if(split)
 			{
 				teamsAndTheirRecords.entrySet().forEach(e -> printingList
-						.add(new ImmutablePair<String, List<String[]>>("-" + e.getKey(), e.getValue())));
+						.add(Pair.of("-" + e.getKey(), e.getValue())));
 			}
 			else
 			{	
