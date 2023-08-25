@@ -13,9 +13,10 @@ public class Main {
 		String outputLocation = scanner.nextLine();		
 		System.out.println("Separate Output Files (Y/N)?:");
 		boolean split = scanner.nextLine().equalsIgnoreCase("Y") ? true : false ;
-
+		System.out.println("Mode to use:");
+		int mode = Integer.parseInt(scanner.nextLine()); //Dodgy int parse because why not.
 		CSVThingy csvThingy = new CSVThingy();
-		int status = csvThingy.processCSV(inputLocation, outputLocation, split);
+		int status = csvThingy.processCSV(inputLocation, outputLocation, split, mode);
 		if (status > 0) {
 			System.out.println("FAILURE!");
 		} else {

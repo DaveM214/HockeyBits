@@ -30,6 +30,8 @@ public class CSVThingy {
 	final Map<String, String> teamsAndTheirLeagues = new HashMap<>();	
 	final Map<String , List<String[]>> teamsAndTheirRecords = new HashMap<>();
 
+	private final String club = "Yeovil & Sherborne";
+	
 	private final String teamsToLeagues = """
 			West Women's Division 1 South,Ladies 1s,
 			West Women's Wessex Division 1,Ladies 2s,
@@ -46,8 +48,10 @@ public class CSVThingy {
 	
 	//Things to improve:
 	//Handling two teams in same leagues properly
+	//Use a config file instead of hard coding
 	
-	public int processCSV(String inputPath, String outputPath, boolean split)
+	@SuppressWarnings("resource")
+	public int processCSV(String inputPath, String outputPath, boolean split, int mode)
 	{
 		// Populate the map.
 		String temp = teamsToLeagues.replace("\n", "").replace("\r", "");
@@ -101,7 +105,20 @@ public class CSVThingy {
 				//The last 7 characters are a random ID String so cut that out.
 				String compEvent = record.get("Competition/Event");		
 				String team = teamsAndTheirLeagues.get(compEvent.substring(0, compEvent.length() - 7));
-				String[] entry = new String[]{formattedDate,time,homeTeam,awayTeam,location,team};
+				//
+				
+				String homeAway = homeTeam.contains(club) ? "Home" : "Away";
+				String oppo = homeAway.equals("Home") ? awayTeam : homeTeam;
+				String[] entry = null;
+				if (mode == 1) {
+					entry = new String[] { formattedDate, time, homeTeam, awayTeam, location, team };
+				} else if (mode == 2) {
+					entry = new String[] { formattedDate, team, oppo, homeAway, compEvent, time, location };
+				}
+				else
+				{
+					throw new IOException("Use an actual mode");
+				}
 				teamsAndTheirRecords.get(team).add(entry);
 			}
 
@@ -130,8 +147,15 @@ public class CSVThingy {
 				
 				String out = new File(path).getAbsolutePath();
 				BufferedWriter writer = Files.newBufferedWriter(Paths.get(out));	
-				try (CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT.withHeader("Date", "Time",
-						"Home Team", "Away Team", "Location", "My Team Indicator"))) {
+				
+				String[] header = null;
+				if (mode == 1) {
+					header = new String[] {"Date", "Time","Home Team", "Away Team", "Location", "My Team Indicator"};
+				} else {
+					header = new String[] {"Date", "My team", "Oppo", "Home-Away", "Competition", "Time", "Venue"};
+				}
+				
+				try (CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT.withHeader(header))) {
 					csvPrinter.printRecords(pair.getRight());
 					csvPrinter.flush();
 					writer.close();
@@ -142,6 +166,7 @@ public class CSVThingy {
 
 		} catch (IOException e) {
 			System.out.println("SOMETHING WENT HORRIBLY WRONG!!");
+			System.out.println("Msg: " + e.getMessage());
 			e.printStackTrace();
 			return 1;
 		}
