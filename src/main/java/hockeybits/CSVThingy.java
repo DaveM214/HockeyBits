@@ -33,12 +33,12 @@ public class CSVThingy {
 	private final String club = "Yeovil & Sherborne";
 	
 	private final String teamsToLeagues = """
-			West Women's Division 1 South,Ladies 1s,
+			West Women's Division 2 Central,Ladies 1s,
 			West Women's Wessex Division 1,Ladies 2s,
-			AWest Women's Wessex Division 1,Ladies 3s,
-			West Men's Division 1 South,Mens 1s,
+			West Women's Wessex Division 2,Ladies 3s,
+			West Men's Division 2 Central,Mens 1s,
 			West Men's Parrett Division 1,Mens 2s,
-			West Men's Parrett Division 2,Mens 3s
+			AWest Men's Parrett Division 1,Mens 3s
 			""";
 
 	public CSVThingy()
@@ -103,10 +103,9 @@ public class CSVThingy {
 				}
 				
 				//The last 7 characters are a random ID String so cut that out.
-				String compEvent = record.get("Competition/Event");		
-				String team = teamsAndTheirLeagues.get(compEvent.substring(0, compEvent.length() - 7));
-				//
-				
+				String compEvent = record.get("Competition/Event").substring(0, record.get("Competition/Event").length() - 7);			
+				String team = teamsAndTheirLeagues.get(compEvent);
+
 				String homeAway = homeTeam.contains(club) ? "Home" : "Away";
 				String oppo = homeAway.equals("Home") ? awayTeam : homeTeam;
 				String[] entry = null;
